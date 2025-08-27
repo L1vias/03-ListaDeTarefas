@@ -10,11 +10,40 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function App() {
   const [tasks, setTasks] = useState([]); //Estado para armazenar a lista de tarefas
   const [newTask, setNewTask] = useState(""); //Estado para o texto da nova tarefa
+  const [isDrarkMode, setIsDarkMode] = useState (false) //estado para alterar entre os temas 
+
+  useEffect(() =>{
+    const loadTasks = async () => {
+      try {
+       const SavedTasks = await AsyncStorage.getItem ("tasks");
+       SavedTasks && setTasks(JSON.parse(SavedTasks));
+      } catch (error){
+        console.error("Erro ao carregar tarefas:", error);
+      }
+    };
+
+    loadTasks();
+  },[])
+
+
+
+  useEffect(() =>{
+    const saveTasks = async () => {
+      try {
+        await AsyncStorage.setItem("tasks",JSON.stringify(tasks));
+      } catch (error){
+        console.error("Erro ao salvar tarefas:", error);
+      }
+    };
+
+    saveTasks();
+  },[tasks])
+
 
   const addTask = () => {
     if (newTask.trim().length > 0) {
@@ -30,26 +59,71 @@ export default function App() {
     }
   };
 
+  const toggleTaskCompleted = (id) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === id ? { ...task, completed: !task.completed } : task
+      )
+    );
+  };
+
+  const deleteTask = (id) => [
+    Alert.alert(
+      "Confirmar exclusão",
+      "Tem certeza que deseja excluir esta tarefa?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () =>
+            setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id)),
+        },
+      ]
+    ),
+  ];
+
+  const renderlist = ({ item }) => (
+    <View style={[styles.taskItem, isDrarkMode && {backgroundColor:"#333", borderColor:"#555"}]} key={item.id}>
+      <TouchableOpacity
+        onPress={() => toggleTaskCompleted(item.id)}
+        style={styles.taskTextContainer}
+      >
+        <Text
+          style={[styles.taskText, item.completed && styles.completedTaskItem, isDrarkMode && {color: "#ccc"},]}
+        >
+          {" "}
+          {item.text}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => deleteTask(item.id)}>
+        <Text style={styles.taskText}> 🗑️ </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
+    <View
+     style={[styles.container, isDrarkMode ? {backgroundColor: "#121212"} : {backgroundColor: "#e0f7fa"}, ]}>
       {/* cabeçalho */}
-      <View style={styles.topBar}>
-        <Text style={styles.topBarTitle}>Minhas Tarefas</Text>
-        <TouchableOpacity>
-          <Text>🌛</Text>
+      <View style={[styles.topBar, isDrarkMode && {backgroundColor: "#1e1e1e", borderBottomColor:"#333"},]}>
+        <Text style={[styles.topBarTitle, isDrarkMode && { color:"#fff"}, ]}>Minhas Tarefas</Text>
+        <TouchableOpacity onPress={() => setIsDarkMode(!isDrarkMode)}> 
+          <Text>{isDrarkMode ? '🌞' : '🌛'}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Local onde o usuário insere as tarefas */}
-      <View style={styles.card}>
+      <View style={[styles.card, isDrarkMode && {backgroundColor:"#1e1e1e"}]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, isDrarkMode && {backgroundColor:"#333", color:"#fff", borderBlockColor:"#555"},]}
           placeholder="Adicionar nova tarefa..."
+          placeholderTextColor={isDrarkMode ? '#888' : "#333"}
           value={newTask}
           onChangeText={setNewTask}
           onSubmitEditing={addTask} //Adiciona a tarefa ao pressionar Enter no teclado
         />
-        <TouchableOpacity style={styles.addButton} onPress={addTask}>
+        <TouchableOpacity style={[styles.addButton, isDrarkMode && {backgroundColo:"#00796b"},]} onPress={addTask}>
           <Text style={styles.buttonText}>Adicionar</Text>
         </TouchableOpacity>
       </View>
@@ -59,23 +133,24 @@ export default function App() {
         style={styles.flatList}
         data={tasks}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View key={item.id} style={styles.taskItem}>
-            <Text>{item.text}</Text>
-            <TouchableOpacity>
-              <Text>🗑️</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        renderItem={renderlist}
+
+        //   <View key={item.id} style={styles.taskItem}>
+        //     <Text>{item.text}</Text>
+        //     <TouchableOpacity>
+        //       <Text>🗑️</Text>
+        //     </TouchableOpacity>
+        //   </View>
+        // )}
         ListEmptyComponent={() => (
-          <Text style={styles.emptyListText}>
+          <Text style={[styles.emptyListText, isDrarkMode && {color:"#888"}]}>
             Nenhuma tarefa adicionada ainda.
           </Text>
         )}
         contentContainerStyle={styles.flatListContent}
       />
 
-      <StatusBar style="auto" />
+      <StatusBar style={isDrarkMode ? 'light' : 'dark'} />
     </View>
   );
 }
@@ -159,7 +234,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   taskText: {
-    color: "#333",
+    color: "#000",
     fontSize: 18,
     flexWrap: "wrap", //Permite que o texto quebre linha
   },
